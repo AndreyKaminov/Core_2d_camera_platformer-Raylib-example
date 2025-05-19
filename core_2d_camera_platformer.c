@@ -1,6 +1,6 @@
 /*******************************************************************************************
 *
-*   raylib [core] example - 2D Camera platformer///
+*   raylib [core] example - 2D Camera platformer///////
 */
 #include "raylib.h"
 #include "raymath.h"
