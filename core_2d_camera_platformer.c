@@ -86,6 +86,7 @@ int main(void)
     };
 
     SetTargetFPS(60);
+    
 
     while (!WindowShouldClose())
     {
@@ -117,7 +118,7 @@ int main(void)
                 for (int i = 0; i < envItemsLength; i++) DrawRectangleRec(envItems[i].rect, envItems[i].color);
 
                 Rectangle playerRect = { player.position.x - 20, player.position.y - 40, 40.0f, 40.0f };
-                DrawRectangleRec(playerRect, RED);
+                DrawRectangleRec(playerRect, BLUE);
                 
                 DrawCircleV(player.position, 5.0f, GOLD);
 
@@ -130,6 +131,18 @@ int main(void)
             DrawText("- C to change camera mode", 40, 100, 10, DARKGRAY);
             DrawText("Current camera mode:", 20, 120, 10, BLACK);
             DrawText(cameraDescriptions[cameraOption], 40, 140, 10, DARKGRAY);
+            
+            
+    {   // Отрисовка FPS в правом верхнем углу
+        const int fpsFontSize = 20;
+        const int padding = 10;
+        const char *fpsText = TextFormat("FPS: %d", GetFPS());
+        int textWidth = MeasureText(fpsText, fpsFontSize);
+        int xPos = GetScreenWidth() - textWidth - padding;
+        int yPos = padding;
+        DrawText(fpsText, xPos, yPos, fpsFontSize, DARKBLUE);
+    }
+
 
         EndDrawing();
     }
