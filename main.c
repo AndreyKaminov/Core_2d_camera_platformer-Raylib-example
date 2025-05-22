@@ -93,15 +93,15 @@ static void UpdateDrawFrame(void)
 
         BeginMode3D(camera);
 
-            DrawCube(cubePosition, 2.0f, 2.0f, 2.0f, RED);
-            DrawCubeWires(cubePosition, 2.0f, 2.0f, 2.0f, MAROON);
+            DrawCube(cubePosition, 4.0f, 10.0f, 2.0f, RED);
+            DrawCubeWires(cubePosition, 2.0f, 5.0f, 2.0f, MAROON);
             DrawGrid(10, 1.0f);
 
         EndMode3D();
 
-        DrawText("This is a raylib example", 10, 40, 20, DARKGRAY);
+        DrawText("Lev Popov is a BASTARD!", 10, 40, 20, DARKGRAY);
 
-        DrawFPS(10, 10);
+        DrawFPS(300, 10);
 
     EndDrawing();
     //----------------------------------------------------------------------------------

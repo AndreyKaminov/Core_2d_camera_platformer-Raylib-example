@@ -2,24 +2,27 @@
 *
 *   raylib [core] example - 2D Camera platformer///////
 */
-#include "raylib.h"
-#include "raymath.h"
+#include "raylib.h"    //добавляем основную библиотеку
+#include "raymath.h"    //добавляем модуль с математическими функциями
 
-#define G 750
-#define PLAYER_JUMP_SPD 350.0f
+//Здесь константы влияющие на главного героя
+
+#define G 750 // гравитация
+#define PLAYER_JUMP_SPD 350.0f  // Скорость прыжка
 #define PLAYER_MAX_SPEED 500.0f // Max horizontal speed
 #define PLAYER_ACCELERATION 400.0f // Time to reach max speed
-#define PLAYER_DECELERATION 280.0f
-#define PLAYER_MAX_JUMP_TIME 0.30f
-#define PLAYER_JUMP_HOLD_FORCE 350.0f
+#define PLAYER_DECELERATION 280.0f // Замедление игрока
+#define PLAYER_MAX_JUMP_TIME 0.30f //Максимальное время в воздухе
+#define PLAYER_JUMP_HOLD_FORCE 350.0f // Контроль прыжка зажатием клавиши
 
 typedef struct Player {
-    Vector2 position;
-    float speed;
-    float velocityX;
-    bool canJump;
-    float jumpTime;
-    bool isJumping;
+    Vector2 position; // Vector2 это X и Y в двухмерном пространстве
+    float speed; // Используется для движения игрока вверх и вниз (прыжок, падение, гравитация).
+    float velocityX; // Используется для движения игрока влево и вправо. Меняется при нажатии клавиш движения с учётом ускорения и замедления.
+
+    bool canJump; // Проверяет может ли игрок в данный момент прыгать
+    float jumpTime; // Время прыжка
+    bool isJumping; // Прыгает ли в данный момент игрок?
 } Player;
 
 typedef struct EnvItem {
@@ -28,7 +31,7 @@ typedef struct EnvItem {
     Color color;
 } EnvItem;
 
-void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta);
+void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta); // Это объявление функции, которая отвечает за всю игровую логику движения и состояния игрока.
 void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
 void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
 void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
@@ -37,10 +40,16 @@ void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *env
 
 int main(void)
 {
+
+    // Задаём разрешение игрового окна
     const int screenWidth = 1600;
     const int screenHeight = 800;
 
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - 2d camera");
+
+    // Название игрового окна
+    InitWindow(screenWidth, screenHeight, "PlatformerTest");
+
+
 
     Player player = { 0 };
     player.position = (Vector2){ 400, 280 };
@@ -50,6 +59,8 @@ int main(void)
     player.jumpTime = 0.0f;
     player.isJumping = false;
 
+
+    // Массив с платформами
     EnvItem envItems[] = {
         {{ 0, 0, 1000, 400 }, 0, LIGHTGRAY },
         {{ 0, 400, 1000, 200 }, 1, GRAY },
@@ -58,7 +69,7 @@ int main(void)
         {{ 650, 300, 100, 10 }, 1, GRAY }
     };
 
-    int envItemsLength = sizeof(envItems)/sizeof(envItems[0]);
+    int envItemsLength = sizeof(envItems)/sizeof(envItems[0]); //Эта строка автоматически определяет длину массива envItems, чтобы не пришлось вручную менять значение при добавлении или удалении элементов из массива.
 
     Camera2D camera = { 0 };
     camera.target = player.position;

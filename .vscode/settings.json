@@ -8,5 +8,9 @@
 		"**/*.o": true,
 		"**/*.exe": true,
 	},
-	"C_Cpp.errorSquiggles": "disabled"
+	"C_Cpp.errorSquiggles": "disabled",
+	"files.associations": {
+		"raymath.h": "c",
+		"raylib.h": "c"
+	}
 }
