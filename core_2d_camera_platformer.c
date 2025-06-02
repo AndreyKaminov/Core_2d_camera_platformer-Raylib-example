@@ -4,91 +4,96 @@
 *
 ********************************************************************************************/
 
-#include "raylib.h"
-#include "raymath.h"
+#include "raylib.h"  // Подключение основной библиотеки raylib для графики, ввода и т.д.
+#include "raymath.h" // Подключение библиотеки raymath для работы с векторами и мат.функциями
 
 // Константы для игрока
-#define G 750 // гравитация
-#define PLAYER_JUMP_SPD 350.0f
-#define PLAYER_MAX_SPEED 500.0f
-#define PLAYER_ACCELERATION 400.0f
-#define PLAYER_DECELERATION 280.0f
-#define PLAYER_MAX_JUMP_TIME 0.30f
-#define PLAYER_JUMP_HOLD_FORCE 350.0f
+#define G 750                           // Константа гравитации (ускорение вниз)
+#define PLAYER_JUMP_SPD 350.0f          // Начальная скорость прыжка игрока вверх
+#define PLAYER_MAX_SPEED 500.0f         // Максимальная горизонтальная скорость игрока
+#define PLAYER_ACCELERATION 400.0f      // Ускорение при движении влево/вправо
+#define PLAYER_DECELERATION 280.0f      // Замедление, когда игрок отпускает клавишу движения
+#define PLAYER_MAX_JUMP_TIME 0.30f      // Максимальное время удержания прыжка (сек)
+#define PLAYER_JUMP_HOLD_FORCE 350.0f   // Сила, с которой игрок может "удерживать" прыжок
 
+
+// --- Структура игрока ---
 typedef struct Player {
-    Vector2 position;
-    float speed;
-    float velocityX;
-    bool canJump;
-    float jumpTime;
-    bool isJumping;
+    Vector2 position;   // Позиция игрока (x, y) в игровом мире
+    float speed;        // Вертикальная скорость (для прыжка и падения)
+    float velocityX;    // Горизонтальная скорость (влево/вправо)
+    bool canJump;       // Может ли игрок прыгать (стоит ли он на земле)
+    float jumpTime;     // Время, сколько игрок уже прыгает (для удержания прыжка)
+    bool isJumping;     // Находится ли игрок сейчас в прыжке
 } Player;
 
+
+// --- Структура платформы/препятствия ---
 typedef struct EnvItem {
-    Rectangle rect;
+    Rectangle rect;        // Прямоугольник платформы (x, y, ширина, высота)
     int blocking;
     Color color;
 } EnvItem;
 
 // ======= Пыль (частицы) =======
-#define MAX_PARTICLES 128
+#define MAX_PARTICLES 128   // Максимальное количество одновременных частиц
 
 typedef struct Particle {
-    Vector2 pos;
-    Vector2 vel;
-    float life;
-    float maxLife;
-    float size;
-    bool active;
+    Vector2 pos;            // Позиция частицы
+    Vector2 vel;            // Скорость частицы
+    float life;             // Оставшееся время жизни частицы (сек)
+    float maxLife;          // Максимальное время жизни частицы (сек)
+    float size;             // Размер частицы (радиус)
+    bool active;            // Активна ли частица (true - отрисовывается, false - свободна)
 } Particle;
 
-Particle particles[MAX_PARTICLES] = {0};
+Particle particles[MAX_PARTICLES] = {0};    // Массив всех частиц, изначально все неактивны
 
-void SpawnDustParticles(Vector2 pos, int count)
-{
+ // --- Функция спавна пыли при приземлении ---
+void SpawnDustParticles(Vector2 pos, int count)    
+{   // Перебираем массив частиц и активируем свободные
     for (int i = 0; i < MAX_PARTICLES && count > 0; i++)
     {
-        if (!particles[i].active)
+        if (!particles[i].active)   // Если частица неактивна, можно использовать
         {
-            float angle = DEG2RAD * (GetRandomValue(200, 340)); // В стороны
-            float speed = GetRandomValue(50, 120) / 100.0f;
-            particles[i].pos = pos;
-            particles[i].vel = (Vector2){ cosf(angle) * speed, -fabsf(sinf(angle) * speed) };
-            particles[i].life = 1.5f;
-            particles[i].maxLife = 1.5f;
-            particles[i].size = GetRandomValue(6, 12); // УВЕЛИЧЕНО В 10 РАЗ (было /10.0f)
-            particles[i].active = true;
-            count--;
+            float angle = DEG2RAD * (GetRandomValue(200, 340));                                 // Случайный угол разлёта (в стороны)
+            float speed = GetRandomValue(50, 120) / 100.0f;                                     // Случайная скорость (0.5 - 1.2)
+            particles[i].pos = pos;                                                             // Позиция появления (под игроком)
+            particles[i].vel = (Vector2){ cosf(angle) * speed, -fabsf(sinf(angle) * speed) };   // Скорость (разлёт в стороны и чуть вверх)
+            particles[i].life = 1.5f;                                                           // Время жизни частицы (сек)
+            particles[i].maxLife = 1.5f;                                                        // Максимальное время жизни
+            particles[i].size = GetRandomValue(6, 12); // УВЕЛИЧЕНО В 10 РАЗ (было /10.0f)      // Размер частицы (0.6 - 1.2 пикселя)
+            particles[i].active = true;                                                         // Активируем частицу
+            count--;                                                                            // Уменьшаем счётчик новых частиц
         }
     }
 }
-
+// --- Обновление всех частиц ---
 void UpdateParticles(float dt)
 {
     for (int i = 0; i < MAX_PARTICLES; i++)
     {
-        if (particles[i].active)
+        if (particles[i].active)    // Только для активных частиц
         {
-            particles[i].pos.x += particles[i].vel.x * 80.0f * dt;
-            particles[i].pos.y += particles[i].vel.y * 80.0f * dt;
-            particles[i].vel.y += 0.5f * dt; // легкая гравитация
-            particles[i].life -= dt;
+            particles[i].pos.x += particles[i].vel.x * 80.0f * dt;      // Движение по X
+            particles[i].pos.y += particles[i].vel.y * 80.0f * dt;      // Движение по Y
+            particles[i].vel.y += 0.5f * dt;                            // Лёгкая гравитация на частицу
+            particles[i].life -= dt;                                    // Уменьшаем время жизни
             if (particles[i].life <= 0.0f)
-                particles[i].active = false;
+                particles[i].active = false;                            // Деактивируем, если "умерла"
         }
     }
 }
-
+// --- Отрисовка всех частиц ---
 void DrawParticles(void)
 {
     for (int i = 0; i < MAX_PARTICLES; i++)
     {
-        if (particles[i].active)
+        if (particles[i].active)    // Только для активных частиц
         {
-            float alpha = particles[i].life / particles[i].maxLife;
-            Color c = Fade(WHITE, alpha);
-            DrawCircleV(particles[i].pos, particles[i].size, c);
+            float alpha = particles[i].life / particles[i].maxLife;     // Прозрачность по времени жизни
+            Color c = Fade(WHITE, alpha);                               // Белый цвет с альфа-каналом
+            DrawCircleV(particles[i].pos, particles[i].size, c);        // Рисуем кружок-частицу
         }
     }
 }
