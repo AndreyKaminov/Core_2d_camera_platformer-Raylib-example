@@ -98,57 +98,57 @@ void DrawParticles(void)
     }
 }
 
-// ======= Прототипы =======
-void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta, bool *justLanded, Vector2 *landPos);
-void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
-void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
-void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
-void UpdateCameraEvenOutOnLanding(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
-void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
+// ======= Прототипы функций управления игроком и камерой =======
+void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta, bool *justLanded, Vector2 *landPos); // Обновление игрока и детекция приземления
+void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: всегда по центру игрока
+void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: центр игрока, но не выходит за пределы карты
+void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: плавно следует за игроком
+void UpdateCameraEvenOutOnLanding(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: выравнивание после приземления
+void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: игрок "толкает" границы экрана
 
 int main(void)
 {
-    const int screenWidth = 1600;
-    const int screenHeight = 800;
+    const int screenWidth = 1600;     // Ширина окна
+    const int screenHeight = 800;    // Высота окна
 
-    InitWindow(screenWidth, screenHeight, "PlatformerTest + Dust");
+    InitWindow(screenWidth, screenHeight, "PlatformerTest + Dust"); // Создаём окно
 
-    Player player = { 0 };
-    player.position = (Vector2){ 400, 280 };
-    player.speed = 0;
-    player.velocityX = 0;
-    player.canJump = false;
-    player.jumpTime = 0.0f;
-    player.isJumping = false;
+    Player player = { 0 };                               // Обнуляем все поля структуры игрока
+    player.position = (Vector2){ 400, 280 };             // Начальная позиция игрока
+    player.speed = 0;                                    // Вертикальная скорость = 0
+    player.velocityX = 0;                                // Горизонтальная скорость = 0
+    player.canJump = false;                              // По умолчанию прыгать нельзя
+    player.jumpTime = 0.0f;                              // Время прыжка = 0
+    player.isJumping = false;                            // Не прыгает
 
-    EnvItem envItems[] = {
-        {{ 0, 0, 1000, 400 }, 0, LIGHTGRAY },
-        {{ 0, 400, 1000, 200 }, 1, GRAY },
-        {{ 300, 200, 400, 10 }, 1, GRAY },
-        {{ 250, 300, 100, 10 }, 1, GRAY },
-        {{ 650, 300, 100, 10 }, 1, GRAY }
+    EnvItem envItems[] = {                          // Массив платформ (препятствий)
+        {{ 0, 0, 1000, 400 }, 0, LIGHTGRAY },       // Фон (не препятствие)
+        {{ 0, 400, 1000, 200 }, 1, GRAY },          // Земля (препятствие)
+        {{ 300, 200, 400, 10 }, 1, GRAY },          // Платформа (препятствие)
+        {{ 250, 300, 100, 10 }, 1, GRAY },          // Платформа (препятствие)
+        {{ 650, 300, 100, 10 }, 1, GRAY }           // Платформа (препятствие)
     };
 
-    int envItemsLength = sizeof(envItems)/sizeof(envItems[0]);
+    int envItemsLength = sizeof(envItems)/sizeof(envItems[0]);  // Количество платформ (автоматически)
 
-    Camera2D camera = { 0 };
-    camera.target = player.position;
-    camera.offset = (Vector2){ screenWidth/2.0f, screenHeight/2.0f };
-    camera.rotation = 0.0f;
-    camera.zoom = 1.0f;
+    Camera2D camera = { 0 };                                    // Обнуляем все поля структуры камеры
+    camera.target = player.position;                            // Центр камеры на игроке
+    camera.offset = (Vector2){ screenWidth/2.0f, screenHeight/2.0f };   // Смещение камеры (центр экрана)
+    camera.rotation = 0.0f;                                             // Без поворота
+    camera.zoom = 1.0f;                                                 // Масштаб 1:1
 
-    void (*cameraUpdaters[])(Camera2D*, Player*, EnvItem*, int, float, int, int) = {
-        UpdateCameraCenter,
-        UpdateCameraCenterInsideMap,
+    void (*cameraUpdaters[])(Camera2D*, Player*, EnvItem*, int, float, int, int) = {    // Массив функций для разных режимов камеры
+        UpdateCameraCenter,                                                            
+        UpdateCameraCenterInsideMap,                                                    
         UpdateCameraCenterSmoothFollow,
         UpdateCameraEvenOutOnLanding,
         UpdateCameraPlayerBoundsPush
     };
 
-    int cameraOption = 0;
-    int cameraUpdatersLength = sizeof(cameraUpdaters)/sizeof(cameraUpdaters[0]);
+    int cameraOption = 0;                                                               // Текущий режим камеры (индекс)
+    int cameraUpdatersLength = sizeof(cameraUpdaters)/sizeof(cameraUpdaters[0]);        // Количество режимов камеры
 
-    char *cameraDescriptions[] = {
+    char *cameraDescriptions[] = {                                                          // Описания режимов камеры
         "Follow player center",
         "Follow player center, but clamp to map edges",
         "Follow player center; smoothed",
@@ -156,58 +156,58 @@ int main(void)
         "Player push camera on getting too close to screen edge"
     };
 
-    SetTargetFPS(60);
+    SetTargetFPS(60);                                                                   // Устанавливаем частоту кадров 60 FPS
 
     // Для детекции приземления:
-    bool wasOnGround = false;
+    bool wasOnGround = false;                                                           // Был ли игрок на земле на предыдущем кадре
 
-    while (!WindowShouldClose())
+    while (!WindowShouldClose())                                                        // Главный игровой цикл, пока окно не закрыто
     {
-        float deltaTime = GetFrameTime();
+        float deltaTime = GetFrameTime();                                               // Получаем время между кадрами (секунды)
 
         // --- Детекция приземления ---
-        bool justLanded = false;
-        Vector2 landPos = {0,0};
-        UpdatePlayer(&player, envItems, envItemsLength, deltaTime, &justLanded, &landPos);
+        bool justLanded = false;                                                            // Флаг: только что приземлились
+        Vector2 landPos = {0,0};                                                            // Координаты приземления
+        UpdatePlayer(&player, envItems, envItemsLength, deltaTime, &justLanded, &landPos);  // Обновляем состояние игрока
 
         if (justLanded)
-            SpawnDustParticles((Vector2){player.position.x, player.position.y+1}, 12);
+            SpawnDustParticles((Vector2){player.position.x, player.position.y+1}, 12);      // Спавним пыль при приземлении
 
-        UpdateParticles(deltaTime);
+        UpdateParticles(deltaTime);                                                         // Обновляем частицы
 
-        camera.zoom += ((float)GetMouseWheelMove()*0.05f);
+        camera.zoom += ((float)GetMouseWheelMove()*0.05f);                                  // Масштаб камеры меняется колесиком мыши
 
-        if (camera.zoom > 3.0f) camera.zoom = 3.0f;
-        else if (camera.zoom < 0.25f) camera.zoom = 0.25f;
+        if (camera.zoom > 3.0f) camera.zoom = 3.0f;                                         // Ограничение максимального масштаба
+        else if (camera.zoom < 0.25f) camera.zoom = 0.25f;                                  // Ограничение минимального масштаба
 
-        if (IsKeyPressed(KEY_R))
+        if (IsKeyPressed(KEY_R))                                                            // Если нажата клавиша R
         {
-            camera.zoom = 1.0f;
-            player.position = (Vector2){ 400, 280 };
+            camera.zoom = 1.0f;                                                             // Сбросить масштаб камеры
+            player.position = (Vector2){ 400, 280 };                                        // Сбросить позицию игрока
         }
 
-        if (IsKeyPressed(KEY_C)) cameraOption = (cameraOption + 1)%cameraUpdatersLength;
+        if (IsKeyPressed(KEY_C)) cameraOption = (cameraOption + 1)%cameraUpdatersLength;     // Если нажата клавиша C переключить режим камеры
 
-        cameraUpdaters[cameraOption](&camera, &player, envItems, envItemsLength, deltaTime, screenWidth, screenHeight);
+        cameraUpdaters[cameraOption](&camera, &player, envItems, envItemsLength, deltaTime, screenWidth, screenHeight); // Обновить камеру
 
-        BeginDrawing();
+        BeginDrawing();                                                                                                 // Начинаем рисовать кадр
 
-            ClearBackground(LIGHTGRAY);
+            ClearBackground(LIGHTGRAY);          // Очищаем фон
 
-            BeginMode2D(camera);
+            BeginMode2D(camera);                // Включаем режим 2D-камеры
 
-                for (int i = 0; i < envItemsLength; i++) DrawRectangleRec(envItems[i].rect, envItems[i].color);
+                for (int i = 0; i < envItemsLength; i++) DrawRectangleRec(envItems[i].rect, envItems[i].color);     // Рисуем все платформы
 
-                Rectangle playerRect = { player.position.x - 20, player.position.y - 40, 40.0f, 40.0f };
-                DrawRectangleRec(playerRect, BLUE);
+                Rectangle playerRect = { player.position.x - 20, player.position.y - 40, 40.0f, 40.0f };            // Прямоугольник игрока
+                DrawRectangleRec(playerRect, BLUE);                              // Рисуем игрока
 
-                DrawCircleV(player.position, 5.0f, GOLD);
+                DrawCircleV(player.position, 5.0f, GOLD);                       // Рисуем точку в центре игрока
 
-                DrawParticles();
+                DrawParticles();                                                // Рисуем частицы пыли
 
-            EndMode2D();
+            EndMode2D();                                                         // Выключаем режим 2D-камеры
 
-            DrawText("Controls:", 20, 20, 10, BLACK);
+            DrawText("Controls:", 20, 20, 10, BLACK);                             // Подсказки управления
             DrawText("- Right/Left to move", 40, 40, 10, DARKGRAY);
             DrawText("- Space to jump", 40, 60, 10, DARKGRAY);
             DrawText("- Mouse Wheel to Zoom in-out, R to reset zoom", 40, 80, 10, DARKGRAY);
@@ -217,44 +217,44 @@ int main(void)
 
             // FPS в правом верхнем углу
             {
-                const int fpsFontSize = 20;
-                const int padding = 10;
-                const char *fpsText = TextFormat("FPS: %d", GetFPS());
-                int textWidth = MeasureText(fpsText, fpsFontSize);
-                int xPos = GetScreenWidth() - textWidth - padding;
-                int yPos = padding;
-                DrawText(fpsText, xPos, yPos, fpsFontSize, DARKBLUE);
+                const int fpsFontSize = 20;                                     // Размер шрифта FPS
+                const int padding = 10;                                         // Отступ от края
+                const char *fpsText = TextFormat("FPS: %d", GetFPS());          // Текст с FPS
+                int textWidth = MeasureText(fpsText, fpsFontSize);              // Ширина текста
+                int xPos = GetScreenWidth() - textWidth - padding;              // X-координата
+                int yPos = padding;                                             // Y-координата
+                DrawText(fpsText, xPos, yPos, fpsFontSize, DARKBLUE);           // Рисуем FPS
             }
 
-        EndDrawing();
+        EndDrawing();                                                           // Заканчиваем рисовать кадр
     }
 
-    CloseWindow();
+    CloseWindow();                                                              // Закрываем окно
 
-    return 0;
+    return 0;                                                                   // Завершаем программу
 }
 
 // ======= Игрок с детекцией приземления =======
 void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta, bool *justLanded, Vector2 *landPos)
 {
-    static bool wasOnGround = false;
+    static bool wasOnGround = false;                                    // Был ли игрок на земле на прошлом кадре
 
-    // Horizontal Movement with Acceleration and Deceleration
-    float targetSpeed = 0.0f;
-    if (IsKeyDown(KEY_LEFT)) targetSpeed -= PLAYER_MAX_SPEED;
-    if (IsKeyDown(KEY_RIGHT)) targetSpeed += PLAYER_MAX_SPEED;
+    // --- Горизонтальное движение с ускорением и замедлением ---
+    float targetSpeed = 0.0f;                                           // Целевая скорость (куда хотим двигаться)
+    if (IsKeyDown(KEY_LEFT)) targetSpeed -= PLAYER_MAX_SPEED;           // Если нажата влево, уменьшаем скорость
+    if (IsKeyDown(KEY_RIGHT)) targetSpeed += PLAYER_MAX_SPEED;          // Если нажата вправо, увеличиваем скорость
 
     if (targetSpeed != 0)
     {
         if (player->velocityX < targetSpeed)
         {
-            player->velocityX += PLAYER_ACCELERATION * delta;
-            if (player->velocityX > targetSpeed) player->velocityX = targetSpeed;
+            player->velocityX += PLAYER_ACCELERATION * delta;           // Ускоряемся вправо
+            if (player->velocityX > targetSpeed) player->velocityX = targetSpeed;   // Не превышаем целевую скорость
         }
         else if (player->velocityX > targetSpeed)
         {
             player->velocityX -= PLAYER_ACCELERATION * delta;
-            if (player->velocityX < targetSpeed) player->velocityX = targetSpeed;
+            if (player->velocityX < targetSpeed) player->velocityX = targetSpeed;   // Не превышаем целевую скорость
         }
     }
     else
