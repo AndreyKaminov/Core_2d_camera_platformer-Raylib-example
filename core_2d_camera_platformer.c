@@ -437,5 +437,5 @@ void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *env
     if (player->position.x < bboxWorldMin.x) camera->target.x = player->position.x; // Если игрок вышел за левую границу области
     if (player->position.y < bboxWorldMin.y) camera->target.y = player->position.y; // Если игрок вышел за верхнюю границу области
     if (player->position.x > bboxWorldMax.x) camera->target.x = bboxWorldMin.x + (player->position.x - bboxWorldMax.x); // За правую
-    if (player->position.y > bboxWorldMax.y) camera->target.y = bboxWorldMin.y + (player->position.y - bboxWorldMax.y); // За нижнюю
+    if (player->position.y > bboxWorldMax.y) camera->target.y = bboxWorldMin.y + (player->position.y - bboxWorldMax.y); // За нижнюю.
 }
