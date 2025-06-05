@@ -261,179 +261,181 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
     {
         if (player->velocityX > 0)
         {
-            player->velocityX -= PLAYER_DECELERATION * delta;
+            player->velocityX -= PLAYER_DECELERATION * delta; // Замедляемся вправо
             if (player->velocityX < 0) player->velocityX = 0;
         }
         else if (player->velocityX < 0)
         {
-            player->velocityX += PLAYER_DECELERATION * delta;
+            player->velocityX += PLAYER_DECELERATION * delta; // Замедляемся влево
             if (player->velocityX > 0) player->velocityX = 0;
         }
     }
-    player->position.x += player->velocityX * delta;
+    player->position.x += player->velocityX * delta;     // Обновляем позицию игрока по X
 
-    // Jumping and gravity
-    if (IsKeyPressed(KEY_SPACE) && player->canJump)
+      // --- Прыжок и гравитация ---
+    if (IsKeyPressed(KEY_SPACE) && player->canJump)     // Если нажата клавиша прыжка и можно прыгать
     {
-        player->speed = -PLAYER_JUMP_SPD;
-        player->canJump = false;
-        player->isJumping = true;
-        player->jumpTime = 0.0f;
+        player->speed = -PLAYER_JUMP_SPD;               // Задаем вертикальную скорость вверх
+        player->canJump = false;                        // Нельзя прыгать, пока не приземлимся
+        player->isJumping = true;                       // Начинаем прыжок
+        player->jumpTime = 0.0f;                        // Сбрасываем таймер прыжка
     }
 
     if (IsKeyDown(KEY_SPACE) && player->isJumping && player->jumpTime < PLAYER_MAX_JUMP_TIME)
     {
-        player->speed = -PLAYER_JUMP_HOLD_FORCE;
-        player->jumpTime += delta;
+        player->speed = -PLAYER_JUMP_HOLD_FORCE;        // Удерживаем прыжок (меньше гравитация)
+        player->jumpTime += delta;                      // Увеличиваем таймер прыжка
     }
     else
     {
-        player->isJumping = false;
+        player->isJumping = false;                      // Если не удерживаем, прыжок завершён
     }
 
-    bool hitObstacle = false;
-    for (int i = 0; i < envItemsLength; i++)
+    bool hitObstacle = false;                           // Столкнулся ли игрок с препятствием снизу
+    for (int i = 0; i < envItemsLength; i++)    
     {
-        EnvItem *ei = envItems + i;
-        Vector2 *p = &(player->position);
+        EnvItem *ei = envItems + i;                     // Текущий элемент окружения
+        Vector2 *p = &(player->position);               // Позиция игрока
+        // Проверяем, есть ли препятствие под игроком
         if (ei->blocking &&
             ei->rect.x <= p->x &&
             ei->rect.x + ei->rect.width >= p->x &&
             ei->rect.y >= p->y &&
             ei->rect.y <= p->y + player->speed*delta)
         {
-            hitObstacle = true;
-            player->speed = 0.0f;
-            p->y = ei->rect.y;
-            break;
+            hitObstacle = true;                         // Нашли препятствие под игроком
+            player->speed = 0.0f;                       // Обнуляем вертикальную скорость
+            p->y = ei->rect.y;                          // Ставим игрока на платформу
+            break;                                      // Выходим из цикла
         }
     }
 
-    bool onGround = hitObstacle;
+    bool onGround = hitObstacle;                        // Стоит ли игрок на земле
 
-    if (!hitObstacle)
+    if (!hitObstacle)                                   
     {
-        player->position.y += player->speed*delta;
-        player->speed += G*delta;
-        player->canJump = false;
+        player->position.y += player->speed*delta;      // Обновляем позицию по Y
+        player->speed += G*delta;                       // Применяем гравитацию
+        player->canJump = false;                        // Прыгать нельзя, пока не на земле
     }
     else
     {
-        player->canJump = true;
-        player->isJumping = false;
-        player->jumpTime = 0.0f;
+        player->canJump = true;                         // Можно прыгать (стоим на земле)
+        player->isJumping = false;                      // Не прыгаем
+        player->jumpTime = 0.0f;                        // Сбрасываем таймер прыжка
     }
 
     // Детект приземления
-    *justLanded = false;
-    if (!wasOnGround && onGround)
+    *justLanded = false;                                // Сброс флага приземления
+    if (!wasOnGround && onGround)                       // Если только что приземлились
     {
-        *justLanded = true;
-        *landPos = player->position;
+        *justLanded = true;                             // Ставим флаг приземления
+        *landPos = player->position;                    // Запоминаем позицию приземления
     }
-    wasOnGround = onGround;
+    wasOnGround = onGround;                             // Запоминаем состояние "на земле"
 }
 
 // ======= Функции камеры =======
 void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
 {
-    camera->offset = (Vector2){ width/2.0f, height/2.0f };
-    camera->target = player->position;
+    camera->offset = (Vector2){ width/2.0f, height/2.0f };      // Центр экрана
+    camera->target = player->position;                          // Центр камеры на игроке
 }
 
 void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
 {
-    camera->target = player->position;
-    camera->offset = (Vector2){ width/2.0f, height/2.0f };
-    float minX = 1000, minY = 1000, maxX = -1000, maxY = -1000;
+    camera->target = player->position;                          // Центр камеры на игроке
+    camera->offset = (Vector2){ width/2.0f, height/2.0f };      // Центр экрана
+    float minX = 1000, minY = 1000, maxX = -1000, maxY = -1000; // Инициализация границ уровня
 
     for (int i = 0; i < envItemsLength; i++)
     {
-        EnvItem *ei = envItems + i;
-        minX = fminf(ei->rect.x, minX);
-        maxX = fmaxf(ei->rect.x + ei->rect.width, maxX);
-        minY = fminf(ei->rect.y, minY);
-        maxY = fmaxf(ei->rect.y + ei->rect.height, maxY);
+        EnvItem *ei = envItems + i;                             
+        minX = fminf(ei->rect.x, minX);                         // Минимальный X
+        maxX = fmaxf(ei->rect.x + ei->rect.width, maxX);        // Максимальный X
+        minY = fminf(ei->rect.y, minY);                         // Минимальный Y
+        maxY = fmaxf(ei->rect.y + ei->rect.height, maxY);       // Максимальный Y
     }
 
-    Vector2 max = GetWorldToScreen2D((Vector2){ maxX, maxY }, *camera);
+    Vector2 max = GetWorldToScreen2D((Vector2){ maxX, maxY }, *camera);     // Координаты края карты на экране
     Vector2 min = GetWorldToScreen2D((Vector2){ minX, minY }, *camera);
 
-    if (max.x < width) camera->offset.x = width - (max.x - width/2);
-    if (max.y < height) camera->offset.y = height - (max.y - height/2);
-    if (min.x > 0) camera->offset.x = width/2 - min.x;
-    if (min.y > 0) camera->offset.y = height/2 - min.y;
+    if (max.x < width) camera->offset.x = width - (max.x - width/2);        // Не даём выйти за правый край
+    if (max.y < height) camera->offset.y = height - (max.y - height/2);     // Не даём выйти за нижний край
+    if (min.x > 0) camera->offset.x = width/2 - min.x;                      // Не даём выйти за левый край
+    if (min.y > 0) camera->offset.y = height/2 - min.y;                     // Не даём выйти за верхний край
 }
 
 void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
 {
-    static float minSpeed = 30;
-    static float minEffectLength = 10;
-    static float fractionSpeed = 0.8f;
+    static float minSpeed = 30;                                             // Минимальная скорость следования
+    static float minEffectLength = 10;                                      // Минимальная дистанция для движения камеры
+    static float fractionSpeed = 0.8f;                                      // Доля расстояния, которую камера проходит за кадр
 
-    camera->offset = (Vector2){ width/2.0f, height/2.0f };
-    Vector2 diff = Vector2Subtract(player->position, camera->target);
-    float length = Vector2Length(diff);
+
+    camera->offset = (Vector2){ width/2.0f, height/2.0f };                  // Центр экрана
+    Vector2 diff = Vector2Subtract(player->position, camera->target);       // Разница между позицией игрока и камеры
+    float length = Vector2Length(diff);                                     // Расстояние между игроком и камерой
 
     if (length > minEffectLength)
     {
-        float speed = fmaxf(fractionSpeed*length, minSpeed);
-        camera->target = Vector2Add(camera->target, Vector2Scale(diff, speed*delta/length));
+        float speed = fmaxf(fractionSpeed*length, minSpeed);                                 // Скорость движения камеры
+        camera->target = Vector2Add(camera->target, Vector2Scale(diff, speed*delta/length)); // Плавное движение камеры к игроку
     }
 }
 
 void UpdateCameraEvenOutOnLanding(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
 {
-    static float evenOutSpeed = 700;
-    static int eveningOut = false;
-    static float evenOutTarget;
+    static float evenOutSpeed = 700;                            // Скорость выравнивания камеры
+    static int eveningOut = false;                              // Флаг, идет ли выравнивание
+    static float evenOutTarget;                                 // Целевая позиция по Y
 
-    camera->offset = (Vector2){ width/2.0f, height/2.0f };
-    camera->target.x = player->position.x;
+    camera->offset = (Vector2){ width/2.0f, height/2.0f };      // Центр экрана
+    camera->target.x = player->position.x;                      // Камера всегда по X за игроком
 
     if (eveningOut)
     {
         if (evenOutTarget > camera->target.y)
         {
-            camera->target.y += evenOutSpeed*delta;
+            camera->target.y += evenOutSpeed*delta;             // Двигаем камеру вниз
 
-            if (camera->target.y > evenOutTarget)
+            if (camera->target.y > evenOutTarget)              
             {
-                camera->target.y = evenOutTarget;
+                camera->target.y = evenOutTarget;                // Останавливаем на целевой позиции 
                 eveningOut = 0;
             }
         }
         else
         {
-            camera->target.y -= evenOutSpeed*delta;
+            camera->target.y -= evenOutSpeed*delta;             // Двигаем камеру вверх
 
             if (camera->target.y < evenOutTarget)
             {
-                camera->target.y = evenOutTarget;
+                camera->target.y = evenOutTarget;                // Останавливаем на целевой позиции
                 eveningOut = 0;
             }
         }
     }
     else
     {
-        if (player->canJump && (player->speed == 0) && (player->position.y != camera->target.y))
+        if (player->canJump && (player->speed == 0) && (player->position.y != camera->target.y))    // Если игрок на земле и камера не выровнена
         {
-            eveningOut = 1;
-            evenOutTarget = player->position.y;
+            eveningOut = 1;                         // Начинаем выравнивание
+            evenOutTarget = player->position.y;     // Запоминаем целевую позицию
         }
     }
 }
 
 void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
 {
-    static Vector2 bbox = { 0.2f, 0.2f };
+    static Vector2 bbox = { 0.2f, 0.2f };         // Размер области вокруг игрока (проценты от экрана)
 
-    Vector2 bboxWorldMin = GetScreenToWorld2D((Vector2){ (1 - bbox.x)*0.5f*width, (1 - bbox.y)*0.5f*height }, *camera);
-    Vector2 bboxWorldMax = GetScreenToWorld2D((Vector2){ (1 + bbox.x)*0.5f*width, (1 + bbox.y)*0.5f*height }, *camera);
-    camera->offset = (Vector2){ (1 - bbox.x)*0.5f * width, (1 - bbox.y)*0.5f*height };
+    Vector2 bboxWorldMin = GetScreenToWorld2D((Vector2){ (1 - bbox.x)*0.5f*width, (1 - bbox.y)*0.5f*height }, *camera); // Левая верхняя точка области
+    Vector2 bboxWorldMax = GetScreenToWorld2D((Vector2){ (1 + bbox.x)*0.5f*width, (1 + bbox.y)*0.5f*height }, *camera); // Правая нижняя точка области
+    camera->offset = (Vector2){ (1 - bbox.x)*0.5f * width, (1 - bbox.y)*0.5f*height }; // Смещение камеры
 
-    if (player->position.x < bboxWorldMin.x) camera->target.x = player->position.x;
-    if (player->position.y < bboxWorldMin.y) camera->target.y = player->position.y;
-    if (player->position.x > bboxWorldMax.x) camera->target.x = bboxWorldMin.x + (player->position.x - bboxWorldMax.x);
-    if (player->position.y > bboxWorldMax.y) camera->target.y = bboxWorldMin.y + (player->position.y - bboxWorldMax.y);
+    if (player->position.x < bboxWorldMin.x) camera->target.x = player->position.x; // Если игрок вышел за левую границу области
+    if (player->position.y < bboxWorldMin.y) camera->target.y = player->position.y; // Если игрок вышел за верхнюю границу области
+    if (player->position.x > bboxWorldMax.x) camera->target.x = bboxWorldMin.x + (player->position.x - bboxWorldMax.x); // За правую
+    if (player->position.y > bboxWorldMax.y) camera->target.y = bboxWorldMin.y + (player->position.y - bboxWorldMax.y); // За нижнюю
 }
