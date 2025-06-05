@@ -89,14 +89,16 @@ void DrawParticles(void)
 {
     for (int i = 0; i < MAX_PARTICLES; i++)
     {
-        if (particles[i].active)    // Только для активных частиц
+        if (particles[i].active)
         {
-            float alpha = particles[i].life / particles[i].maxLife;     // Прозрачность по времени жизни
-            Color c = Fade(WHITE, alpha);                               // Белый цвет с альфа-каналом
-            DrawCircleV(particles[i].pos, particles[i].size, c);        // Рисуем кружок-частицу
+            float alpha = particles[i].life / particles[i].maxLife;
+            Color c = Fade(WHITE, alpha);
+            float currentSize = particles[i].size * alpha; // Добавляем уменьшение размера
+            DrawCircleV(particles[i].pos, currentSize, c); // Используем текущий размер
         }
     }
 }
+
 
 // ======= Прототипы функций управления игроком и камерой =======
 void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta, bool *justLanded, Vector2 *landPos); // Обновление игрока и детекция приземления
