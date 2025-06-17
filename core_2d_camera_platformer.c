@@ -8,13 +8,13 @@
 #include "raymath.h" // Подключаем библиотеку raymath для работы с векторами и мат.функциями
 
 // Константы для игрока
-#define G 900                          // Константа гравитации (ускорение вниз)
-#define PLAYER_JUMP_SPD 350.0f         // Начальная скорость прыжка игрока вверх
+#define G 950                      // Константа гравитации (ускорение вниз)
+#define PLAYER_JUMP_SPD 400.0f         // Начальная скорость прыжка игрока вверх
 #define PLAYER_MAX_SPEED 500.0f        // Максимальная горизонтальная скорость игрока
-#define PLAYER_ACCELERATION 400.0f     // Ускорение при движении влево/вправо
-#define PLAYER_DECELERATION 280.0f     // Замедление, когда игрок отпускает клавишу движения
-#define PLAYER_MAX_JUMP_TIME 0.30f     // Максимальное время удержания прыжка (сек)
-#define PLAYER_JUMP_HOLD_FORCE 350.0f  // Сила, с которой игрок может "удерживать" прыжок
+#define PLAYER_ACCELERATION 720.0f     // Ускорение при движении влево/вправо
+#define PLAYER_DECELERATION 450.0f     // Замедление, когда игрок отпускает клавишу движения
+#define PLAYER_MAX_JUMP_TIME 0.50f     // Максимальное время удержания прыжка (сек)
+#define PLAYER_JUMP_HOLD_FORCE 500.0f  // Сила, с которой игрок может "удерживать" прыжок
 
 // --- Структура игрока ---
 typedef struct Player {
