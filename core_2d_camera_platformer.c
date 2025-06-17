@@ -34,7 +34,10 @@ typedef struct Player {
     int jumpCount;      // Счетчик прыжков для распрыжки
     bool dashing;       // Сейчас выполняется рывок
     float dashTime;     // Оставшееся время рывка
+<<<<<<< HEAD
     float dashCooldown; // Кулдаун между дэшами
+=======
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 } Player;
 
 // --- Структура платформы ---
@@ -134,7 +137,10 @@ int main(void)
     player.jumpCount = 0; // Счетчик прыжков для распрыжки
     player.dashing = false; // Не в рывке
     player.dashTime = 0.0f; // Таймер рывка
+<<<<<<< HEAD
     player.dashCooldown = 0.0f; // Кулдаун дэша
+=======
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 
     // --- Уровень: добавлен JumpThru справа от оранжевой платформы ---
     EnvItem envItems[] = {
@@ -153,8 +159,12 @@ int main(void)
     camera.target = player.position; // Камера смотрит на игрока
     camera.offset = (Vector2){ screenWidth/2.0f, screenHeight/2.0f }; // Центр экрана
     camera.rotation = 0.0f; // Без поворота
+<<<<<<< HEAD
     camera.zoom = 2.0f; // Масштаб 1:1
     float cameraTargetZoom = 2.0f; // Желаемый zoom камеры
+=======
+    camera.zoom = 1.0f; // Масштаб 1:1
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 
     void (*cameraUpdaters[])(Camera2D*, Player*, EnvItem*, int, float, int, int) = {
         UpdateCameraCenter,
@@ -163,7 +173,11 @@ int main(void)
         UpdateCameraEvenOutOnLanding,
         UpdateCameraPlayerBoundsPush
     }; // Массив указателей на функции обновления камеры
+<<<<<<< HEAD
     int cameraOption = 2; // Текущий режим камеры
+=======
+    int cameraOption = 0; // Текущий режим камеры
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
     int cameraUpdatersLength = sizeof(cameraUpdaters)/sizeof(cameraUpdaters[0]); // Количество режимов камеры
     char *cameraDescriptions[] = {
         "Follow player center",
@@ -173,7 +187,11 @@ int main(void)
         "Player push camera on getting too close to screen edge"
     }; // Описания режимов камеры
 
+<<<<<<< HEAD
     SetTargetFPS(144); // 144 кадров в секунду
+=======
+    SetTargetFPS(60); // 60 кадров в секунду
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 
     while (!WindowShouldClose())
     {
@@ -277,6 +295,7 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
     static bool wasOnGround = false;
 
     // --- DASH (рывок) ---
+<<<<<<< HEAD
     if (player->dashCooldown > 0.0f) player->dashCooldown -= delta;
 
     if (!player->dashing && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT))) {
@@ -293,6 +312,18 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
                 player->velocityX = PLAYER_DASH_SPEED;
                 player->dashCooldown = 1.5f; // Устанавливаем кулдаун
             }
+=======
+    if (!player->dashing && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT))) {
+        // Рывок только если есть движение влево или вправо
+        if (IsKeyDown(KEY_LEFT)) {
+            player->dashing = true;
+            player->dashTime = PLAYER_DASH_TIME;
+            player->velocityX = -PLAYER_DASH_SPEED;
+        } else if (IsKeyDown(KEY_RIGHT)) {
+            player->dashing = true;
+            player->dashTime = PLAYER_DASH_TIME;
+            player->velocityX = PLAYER_DASH_SPEED;
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
         }
     }
     if (player->dashing) {
