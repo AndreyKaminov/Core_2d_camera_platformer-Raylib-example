@@ -1,158 +1,159 @@
 /*******************************************************************************************
 *
-*   raylib [core] example - 2D Camera platformer + Dust Particles on Landing
+*   raylib [core] example - 2D Camera platformer + Dust Particles + JumpThru Platforms
 *
 ********************************************************************************************/
 
-#include "raylib.h"  // Подключаем основную библиотеку raylib для графики, ввода и т.д.
-#include "raymath.h" // Подключаем библиотеку raymath для работы с векторами и мат.функциями
+#include "raylib.h"
+#include "raymath.h"
 
-// Константы для игрока
-#define G 950                      // Константа гравитации (ускорение вниз)
-#define PLAYER_JUMP_SPD 400.0f         // Начальная скорость прыжка игрока вверх
-#define PLAYER_MAX_SPEED 500.0f        // Максимальная горизонтальная скорость игрока
-#define PLAYER_ACCELERATION 720.0f     // Ускорение при движении влево/вправо
-#define PLAYER_DECELERATION 450.0f     // Замедление, когда игрок отпускает клавишу движения
-#define PLAYER_MAX_JUMP_TIME 0.50f     // Максимальное время удержания прыжка (сек)
-#define PLAYER_JUMP_HOLD_FORCE 500.0f  // Сила, с которой игрок может "удерживать" прыжок
+// --- Константы игрока ---
+#define G 900
+#define PLAYER_JUMP_SPD 350.0f
+#define PLAYER_MAX_SPEED 500.0f
+#define PLAYER_ACCELERATION 400.0f
+#define PLAYER_DECELERATION 280.0f
+#define PLAYER_MAX_JUMP_TIME 0.30f
+#define PLAYER_JUMP_HOLD_FORCE 350.0f
+
+// --- Типы платформ ---
+typedef enum { PLATFORM_NONE = 0, PLATFORM_SOLID = 1, PLATFORM_JUMPTHRU = 2 } PlatformType;
 
 // --- Структура игрока ---
 typedef struct Player {
-    Vector2 position;   // Позиция игрока (x, y) в игровом мире
-    float speed;        // Вертикальная скорость (для прыжка и падения)
-    float velocityX;    // Горизонтальная скорость (влево/вправо)
-    bool canJump;       // Может ли игрок прыгать (стоит ли он на земле)
-    float jumpTime;     // Время, сколько игрок уже прыгает (для удержания прыжка)
-    bool isJumping;     // Находится ли игрок сейчас в прыжке
+    Vector2 position;   // Центр ног игрока
+    float speed;        // Вертикальная скорость
+    float velocityX;    // Горизонтальная скорость
+    bool canJump;       // Может прыгать
+    float jumpTime;     // Время удержания прыжка
+    bool isJumping;     // Сейчас прыгает
+    bool dropDown;      // Флаг: инициировано спрыгивание с JumpThru
 } Player;
 
-// --- Структура платформы/препятствия ---
+// --- Структура платформы ---
 typedef struct EnvItem {
-    Rectangle rect;     // Прямоугольник платформы (x, y, ширина, высота)
-    int blocking;       // Является ли препятствием (1 - да, 0 - нет)
+    Rectangle rect;     // Прямоугольник платформы
+    PlatformType type;  // Тип платформы
     Color color;        // Цвет платформы
 } EnvItem;
 
-// ======= Пыль (частицы) =======
-#define MAX_PARTICLES 500   // Максимальное количество одновременных частиц
-
+// --- Частицы пыли ---
+#define MAX_PARTICLES 500
 typedef struct Particle {
-    Vector2 pos;        // Позиция частицы
-    Vector2 vel;        // Скорость частицы
-    float life;         // Оставшееся время жизни частицы (сек)
-    float maxLife;      // Максимальное время жизни частицы (сек)
-    float size;         // Размер частицы (радиус)
-    bool active;        // Активна ли частица (true - отрисовывается, false - свободна)
+    Vector2 pos;
+    Vector2 vel;
+    float life;
+    float maxLife;
+    float size;
+    bool active;
 } Particle;
+Particle particles[MAX_PARTICLES] = {0};
 
-Particle particles[MAX_PARTICLES] = {0};    // Массив всех частиц, изначально все неактивны
-
-// --- Функция спавна пыли при приземлении ---
+// --- Функция спавна пыли ---
 void SpawnDustParticles(Vector2 pos, int count)
 {
-    for (int i = 0; i < MAX_PARTICLES && count > 0; i++) // Перебираем массив частиц и активируем свободные
+    for (int i = 0; i < MAX_PARTICLES && count > 0; i++)
     {
-        if (!particles[i].active) // Если частица неактивна, можно использовать
+        if (!particles[i].active)
         {
-            float angle = DEG2RAD * (GetRandomValue(200, 340)); // Случайный угол разлёта (в стороны)
-            float speed = GetRandomValue(50, 120) / 100.0f; // Случайная скорость (0.5 - 1.2)
-            particles[i].pos = pos; // Позиция появления (под игроком)
-            particles[i].vel = (Vector2){ cosf(angle) * speed, -fabsf(sinf(angle) * speed) }; // Скорость (разлёт в стороны и чуть вверх)
-            particles[i].life = 1.5f; // Время жизни частицы (сек)
-            particles[i].maxLife = 1.5f; // Максимальное время жизни
-            particles[i].size = GetRandomValue(6, 12); // Размер частицы (6 - 12 пикселей)
-            particles[i].active = true; // Активируем частицу
-            count--; // Уменьшаем счётчик новых частиц
+            float angle = DEG2RAD * (GetRandomValue(200, 340));
+            float speed = GetRandomValue(50, 120) / 100.0f;
+            particles[i].pos = pos;
+            particles[i].vel = (Vector2){ cosf(angle) * speed, -fabsf(sinf(angle) * speed) };
+            particles[i].life = 1.5f;
+            particles[i].maxLife = 1.5f;
+            particles[i].size = GetRandomValue(6, 12);
+            particles[i].active = true;
+            count--;
         }
     }
 }
 
-// --- Обновление всех частиц ---
+// --- Обновление частиц ---
 void UpdateParticles(float dt)
 {
-    for (int i = 0; i < MAX_PARTICLES; i++) // Перебираем все частицы
+    for (int i = 0; i < MAX_PARTICLES; i++)
     {
-        if (particles[i].active) // Только для активных частиц
+        if (particles[i].active)
         {
-            particles[i].pos.x += particles[i].vel.x * 80.0f * dt; // Движение по X
-            particles[i].pos.y += particles[i].vel.y * 80.0f * dt; // Движение по Y
-            particles[i].vel.y += 0.5f * dt; // Лёгкая гравитация на частицу
-            particles[i].life -= dt; // Уменьшаем время жизни
-            if (particles[i].life <= 0.0f) // Если жизнь закончилась
-                particles[i].active = false; // Деактивируем частицу
+            particles[i].pos.x += particles[i].vel.x * 80.0f * dt;
+            particles[i].pos.y += particles[i].vel.y * 80.0f * dt;
+            particles[i].vel.y += 0.5f * dt;
+            particles[i].life -= dt;
+            if (particles[i].life <= 0.0f)
+                particles[i].active = false;
         }
     }
 }
 
-// --- Отрисовка всех частиц ---
+// --- Рисование частиц ---
 void DrawParticles(void)
 {
-    for (int i = 0; i < MAX_PARTICLES; i++) // Перебираем все частицы
+    for (int i = 0; i < MAX_PARTICLES; i++)
     {
-        if (particles[i].active) // Только для активных
+        if (particles[i].active)
         {
-            float alpha = particles[i].life / particles[i].maxLife; // Прозрачность по времени жизни
-            Color c = Fade(WHITE, alpha); // Цвет с прозрачностью
-            float currentSize = particles[i].size * alpha; // Размер уменьшается с течением времени
-            DrawCircleV(particles[i].pos, currentSize, c); // Рисуем круг
+            float alpha = particles[i].life / particles[i].maxLife;
+            Color c = Fade(WHITE, alpha);
+            float currentSize = particles[i].size * alpha;
+            DrawCircleV(particles[i].pos, currentSize, c);
         }
     }
 }
 
-// ======= Прототипы функций управления игроком и камерой =======
-void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta, bool *justLanded, Vector2 *landPos); // Обновление игрока и детекция приземления
-void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: всегда по центру игрока
-void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: центр игрока, но не выходит за пределы карты
-void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: плавно следует за игроком
-void UpdateCameraEvenOutOnLanding(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: выравнивание после приземления
-void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height); // Камера: игрок "толкает" границы экрана
+// --- Прототипы функций управления игроком и камерой ---
+void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta, bool *justLanded, Vector2 *landPos);
+void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
+void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
+void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
+void UpdateCameraEvenOutOnLanding(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
+void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
 
 int main(void)
 {
-    const int screenWidth = 1600; // Ширина окна
-    const int screenHeight = 800; // Высота окна
+    const int screenWidth = 1600;
+    const int screenHeight = 800;
 
-    InitWindow(screenWidth, screenHeight, "PlatformerTest + Dust"); // Создаём окно
+    InitWindow(screenWidth, screenHeight, "PlatformerTest + Dust + JumpThru");
 
-    Player player = { 0 }; // Обнуляем все поля структуры игрока
-    player.position = (Vector2){ 400, 280 }; // Начальная позиция игрока
-    player.speed = 0; // Вертикальная скорость = 0
-    player.velocityX = 0; // Горизонтальная скорость = 0
-    player.canJump = false; // По умолчанию прыгать нельзя
-    player.jumpTime = 0.0f; // Время прыжка = 0
-    player.isJumping = false; // Не прыгает
+    Player player = {0};
+    player.position = (Vector2){ 400, 280 };
+    player.speed = 0;
+    player.velocityX = 0;
+    player.canJump = false;
+    player.jumpTime = 0.0f;
+    player.isJumping = false;
+    player.dropDown = false;
 
-    //LEVELDESIGN
-    EnvItem envItems[] = { // Массив платформ (препятствий)
-        {{ 0, 0,  1000,   400 },      0,       LIGHTGRAY }, // Фон (не препятствие)
-        {{ 0, 400, 5000, 200 }, 1, GRAY }, // Земля (препятствие)
-        {{ 0, -10, 50, 2000 }, 1, GRAY }, // Левая стена
-        {{ 300, 200, 400, 10 }, 1, GRAY }, // Платформа (препятствие)
-        {{ 250, 300, 100, 10 }, 1, GRAY }, // Платформа (препятствие)
-        {{ 650, 300, 100, 10 }, 1, GRAY }, // Платформа (препятствие)
-        {{ 800, 300, 100, 20 }, 1, ORANGE } // Платформа (препятствие)
+    // --- Уровень: добавлен JumpThru справа от оранжевой платформы ---
+    EnvItem envItems[] = {
+        {{ 0, 0,  1000,   400 },      PLATFORM_NONE,    LIGHTGRAY }, // Фон
+        {{ 0, 400, 5000, 200 }, PLATFORM_SOLID, GRAY },             // Земля
+        {{ 0, -10, 50, 2000 }, PLATFORM_SOLID, GRAY },              // Левая стена
+        {{ 300, 200, 400, 10 }, PLATFORM_SOLID, GRAY },             // Платформа
+        {{ 250, 300, 100, 10 }, PLATFORM_SOLID, GRAY },             // Платформа
+        {{ 650, 300, 100, 10 }, PLATFORM_SOLID, GRAY },             // Платформа
+        {{ 800, 300, 100, 20 }, PLATFORM_SOLID, ORANGE },           // Оранжевая платформа
+        {{ 950, 320, 120, 10 }, PLATFORM_JUMPTHRU, VIOLET }         // JumpThru-платформа
     };
+    int envItemsLength = sizeof(envItems)/sizeof(envItems[0]);
 
-    int envItemsLength = sizeof(envItems)/sizeof(envItems[0]); // Количество платформ (автоматически)
+    Camera2D camera = {0};
+    camera.target = player.position;
+    camera.offset = (Vector2){ screenWidth/2.0f, screenHeight/2.0f };
+    camera.rotation = 0.0f;
+    camera.zoom = 1.0f;
 
-    Camera2D camera = { 0 }; // Обнуляем все поля структуры камеры
-    camera.target = player.position; // Центр камеры на игроке
-    camera.offset = (Vector2){ screenWidth/2.0f, screenHeight/2.0f }; // Смещение камеры (центр экрана)
-    camera.rotation = 0.0f; // Без поворота
-    camera.zoom = 1.0f; // Масштаб 1:1
-
-    void (*cameraUpdaters[])(Camera2D*, Player*, EnvItem*, int, float, int, int) = { // Массив функций для разных режимов камеры
+    void (*cameraUpdaters[])(Camera2D*, Player*, EnvItem*, int, float, int, int) = {
         UpdateCameraCenter,
         UpdateCameraCenterInsideMap,
         UpdateCameraCenterSmoothFollow,
         UpdateCameraEvenOutOnLanding,
         UpdateCameraPlayerBoundsPush
     };
-
-    int cameraOption = 0; // Текущий режим камеры (индекс)
-    int cameraUpdatersLength = sizeof(cameraUpdaters)/sizeof(cameraUpdaters[0]); // Количество режимов камеры
-
-    char *cameraDescriptions[] = { // Описания режимов камеры
+    int cameraOption = 0;
+    int cameraUpdatersLength = sizeof(cameraUpdaters)/sizeof(cameraUpdaters[0]);
+    char *cameraDescriptions[] = {
         "Follow player center",
         "Follow player center, but clamp to map edges",
         "Follow player center; smoothed",
@@ -160,222 +161,253 @@ int main(void)
         "Player push camera on getting too close to screen edge"
     };
 
-    SetTargetFPS(60); // Устанавливаем частоту кадров 60 FPS
+    SetTargetFPS(60);
 
-    while (!WindowShouldClose()) // Главный игровой цикл, пока окно не закрыто
+    while (!WindowShouldClose())
     {
-        float deltaTime = GetFrameTime(); // Получаем время между кадрами (секунды)
+        float deltaTime = GetFrameTime();
 
-        bool justLanded = false; // Флаг: только что приземлились
-        Vector2 landPos = {0,0}; // Координаты приземления
-        UpdatePlayer(&player, envItems, envItemsLength, deltaTime, &justLanded, &landPos); // Обновляем состояние игрока
-
-        if (justLanded) // Если только что приземлились
-            SpawnDustParticles((Vector2){player.position.x, player.position.y+1}, 12); // Спавним пыль при приземлении
-
-        UpdateParticles(deltaTime); // Обновляем частицы
-
-        camera.zoom += ((float)GetMouseWheelMove()*0.05f); // Масштаб камеры меняется колесиком мыши
-        if (camera.zoom > 3.0f) camera.zoom = 3.0f; // Ограничение максимального масштаба
-        else if (camera.zoom < 0.25f) camera.zoom = 0.25f; // Ограничение минимального масштаба
-
-        if (IsKeyPressed(KEY_R)) // Если нажата клавиша R
+        // --- Спрыгивание с JumpThru: если стоим и нажали вниз+пробел, активируем dropDown и НЕ прыгаем! ---
+        if (IsKeyDown(KEY_DOWN) && IsKeyPressed(KEY_SPACE))
         {
-            camera.zoom = 1.0f; // Сбросить масштаб камеры
-            player.position = (Vector2){ 400, 280 }; // Сбросить позицию игрока
+            player.dropDown = true;
+            player.isJumping = false; // Отключаем прыжок!
+            player.jumpTime = 0.0f;
+            player.canJump = false;
+            player.speed = 1.0f; // Дать минимальную скорость вниз, чтобы сразу провалиться
         }
 
-        if (IsKeyPressed(KEY_C)) cameraOption = (cameraOption + 1)%cameraUpdatersLength; // Если нажата клавиша C переключить режим камеры
+        bool justLanded = false;
+        Vector2 landPos = {0,0};
+        UpdatePlayer(&player, envItems, envItemsLength, deltaTime, &justLanded, &landPos);
 
-        cameraUpdaters[cameraOption](&camera, &player, envItems, envItemsLength, deltaTime, screenWidth, screenHeight); // Обновить камеру
+        if (justLanded)
+            SpawnDustParticles((Vector2){player.position.x, player.position.y+1}, 12);
 
-        BeginDrawing(); // Начинаем рисовать кадр
+        UpdateParticles(deltaTime);
 
-            ClearBackground(LIGHTGRAY); // Очищаем фон
+        camera.zoom += ((float)GetMouseWheelMove()*0.05f);
+        if (camera.zoom > 3.0f) camera.zoom = 3.0f;
+        else if (camera.zoom < 0.25f) camera.zoom = 0.25f;
 
-            BeginMode2D(camera); // Включаем режим 2D-камеры
+        if (IsKeyPressed(KEY_R))
+        {
+            camera.zoom = 1.0f;
+            player.position = (Vector2){ 400, 280 };
+        }
 
-                for (int i = 0; i < envItemsLength; i++) DrawRectangleRec(envItems[i].rect, envItems[i].color); // Рисуем все платформы
+        if (IsKeyPressed(KEY_C)) cameraOption = (cameraOption + 1)%cameraUpdatersLength;
 
-                Rectangle playerRect = { player.position.x - 20, player.position.y - 40, 40.0f, 40.0f }; // Прямоугольник игрока
-                DrawRectangleRec(playerRect, BLUE); // Рисуем игрока
+        cameraUpdaters[cameraOption](&camera, &player, envItems, envItemsLength, deltaTime, screenWidth, screenHeight);
 
-                DrawCircleV(player.position, 5.0f, GOLD); // Рисуем точку в центре игрока
+        BeginDrawing();
 
-                DrawParticles(); // Рисуем частицы пыли
+            ClearBackground(LIGHTGRAY);
 
-            EndMode2D(); // Выключаем режим 2D-камеры
+            BeginMode2D(camera);
 
-            DrawText("Controls:", 20, 20, 10, BLACK); // Подсказки управления
+                for (int i = 0; i < envItemsLength; i++) DrawRectangleRec(envItems[i].rect, envItems[i].color);
+
+                Rectangle playerRect = { player.position.x - 20, player.position.y - 40, 40.0f, 40.0f };
+                DrawRectangleRec(playerRect, BLUE);
+
+                DrawCircleV(player.position, 5.0f, GOLD);
+
+                DrawParticles();
+
+            EndMode2D();
+
+            DrawText("Controls:", 20, 20, 10, BLACK);
             DrawText("- Right/Left to move", 40, 40, 10, DARKGRAY);
             DrawText("- Space to jump", 40, 60, 10, DARKGRAY);
-            DrawText("- Mouse Wheel to Zoom in-out, R to reset zoom", 40, 80, 10, DARKGRAY);
-            DrawText("- C to change camera mode", 40, 100, 10, DARKGRAY);
-            DrawText("Current camera mode:", 20, 120, 10, BLACK);
-            DrawText(cameraDescriptions[cameraOption], 40, 140, 10, DARKGRAY);
+            DrawText("- Down+Space to drop through JumpThru", 40, 80, 10, DARKGRAY);
+            DrawText("- Mouse Wheel to Zoom in-out, R to reset zoom", 40, 100, 10, DARKGRAY);
+            DrawText("- C to change camera mode", 40, 120, 10, DARKGRAY);
+            DrawText("Current camera mode:", 20, 140, 10, BLACK);
+            DrawText(cameraDescriptions[cameraOption], 40, 160, 10, DARKGRAY);
 
-            { // FPS в правом верхнем углу
-                const int fpsFontSize = 20; // Размер шрифта FPS
-                const int padding = 10; // Отступ от края
-                const char *fpsText = TextFormat("FPS: %d", GetFPS()); // Текст с FPS
-                int textWidth = MeasureText(fpsText, fpsFontSize); // Ширина текста
-                int xPos = GetScreenWidth() - textWidth - padding; // X-координата
-                int yPos = padding; // Y-координата
-                DrawText(fpsText, xPos, yPos, fpsFontSize, DARKBLUE); // Рисуем FPS
+            {
+                const int fpsFontSize = 20;
+                const int padding = 10;
+                const char *fpsText = TextFormat("FPS: %d", GetFPS());
+                int textWidth = MeasureText(fpsText, fpsFontSize);
+                int xPos = GetScreenWidth() - textWidth - padding;
+                int yPos = padding;
+                DrawText(fpsText, xPos, yPos, fpsFontSize, DARKBLUE);
             }
 
-        EndDrawing(); // Заканчиваем рисовать кадр
+        EndDrawing();
     }
 
-    CloseWindow(); // Закрываем окно
+    CloseWindow();
 
-    return 0; // Завершаем программу
+    return 0;
 }
 
-// ======= Игрок с контролем высоты прыжка и коллизиями =======
+// --- Игрок с поддержкой JumpThru платформ и drop-down ---
 void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta, bool *justLanded, Vector2 *landPos)
 {
-    static bool wasOnGround = false; // Был ли игрок на земле на прошлом кадре
+    static bool wasOnGround = false;
 
-    // --- Горизонтальное движение с ускорением и замедлением ---
-    float targetSpeed = 0.0f; // Целевая скорость (куда хотим двигаться)
-    if (IsKeyDown(KEY_LEFT)) targetSpeed -= PLAYER_MAX_SPEED; // Если нажата влево, уменьшаем скорость
-    if (IsKeyDown(KEY_RIGHT)) targetSpeed += PLAYER_MAX_SPEED; // Если нажата вправо, увеличиваем скорость
+    // --- Горизонтальное движение ---
+    float targetSpeed = 0.0f;
+    if (IsKeyDown(KEY_LEFT)) targetSpeed -= PLAYER_MAX_SPEED;
+    if (IsKeyDown(KEY_RIGHT)) targetSpeed += PLAYER_MAX_SPEED;
 
     if (targetSpeed != 0)
     {
         if (player->velocityX < targetSpeed)
         {
-            player->velocityX += PLAYER_ACCELERATION * delta; // Ускоряемся вправо
-            if (player->velocityX > targetSpeed) player->velocityX = targetSpeed; // Не превышаем целевую скорость
+            player->velocityX += PLAYER_ACCELERATION * delta;
+            if (player->velocityX > targetSpeed) player->velocityX = targetSpeed;
         }
         else if (player->velocityX > targetSpeed)
         {
-            player->velocityX -= PLAYER_ACCELERATION * delta; // Ускоряемся влево
-            if (player->velocityX < targetSpeed) player->velocityX = targetSpeed; // Не превышаем целевую скорость
+            player->velocityX -= PLAYER_ACCELERATION * delta;
+            if (player->velocityX < targetSpeed) player->velocityX = targetSpeed;
         }
     }
     else
     {
         if (player->velocityX > 0)
         {
-            player->velocityX -= PLAYER_DECELERATION * delta; // Замедляемся вправо
-            if (player->velocityX < 0) player->velocityX = 0; // Не уходим в отрицательную скорость
+            player->velocityX -= PLAYER_DECELERATION * delta;
+            if (player->velocityX < 0) player->velocityX = 0;
         }
         else if (player->velocityX < 0)
         {
-            player->velocityX += PLAYER_DECELERATION * delta; // Замедляемся влево
-            if (player->velocityX > 0) player->velocityX = 0; // Не уходим в положительную скорость
+            player->velocityX += PLAYER_DECELERATION * delta;
+            if (player->velocityX > 0) player->velocityX = 0;
         }
     }
 
-    // --- Прыжок (контроль по времени удержания) ---
-    if (IsKeyPressed(KEY_SPACE) && player->canJump)
+    // --- Прыжок с контролем по времени удержания ---
+    if (IsKeyPressed(KEY_SPACE) && player->canJump && !player->dropDown)
     {
-        player->speed = -PLAYER_JUMP_SPD; // Начальная скорость прыжка вверх
-        player->canJump = false; // Пока прыгаем, прыгать нельзя
-        player->isJumping = true; // Флаг: сейчас прыгаем
-        player->jumpTime = 0.0f; // Сбросить таймер прыжка
+        player->speed = -PLAYER_JUMP_SPD;
+        player->canJump = false;
+        player->isJumping = true;
+        player->jumpTime = 0.0f;
     }
 
-    // Если прыжок начат и пробел удерживается, а время удержания не превышено
     if (IsKeyDown(KEY_SPACE) && player->isJumping && player->jumpTime < PLAYER_MAX_JUMP_TIME)
     {
-        player->speed -= PLAYER_JUMP_HOLD_FORCE * delta; // Добавляем силу прыжка пока держим пробел
-        player->jumpTime += delta; // Увеличиваем таймер прыжка
+        player->speed -= PLAYER_JUMP_HOLD_FORCE * delta;
+        player->jumpTime += delta;
     }
     else
     {
-        player->isJumping = false; // Если пробел отпущен или время вышло — больше не прыгаем
+        player->isJumping = false;
     }
 
     // --- Гравитация ---
-    player->speed += G * delta; // Всегда действует гравитация
+    player->speed += G * delta;
 
-    // Размеры игрока
-    float playerWidth = 40.0f; // Ширина игрока
-    float playerHeight = 40.0f; // Высота игрока
+    // --- Размеры игрока ---
+    float playerWidth = 40.0f;
+    float playerHeight = 40.0f;
 
     // --- Сначала движение по X, потом по Y ---
     // 1. Горизонтальное перемещение и коллизии
-    float newX = player->position.x + player->velocityX * delta; // Новая позиция по X
-    Rectangle newPlayerRectX = { newX - playerWidth/2, player->position.y - playerHeight, playerWidth, playerHeight }; // Прямоугольник игрока после перемещения по X
+    float newX = player->position.x + player->velocityX * delta;
+    Rectangle newPlayerRectX = { newX - playerWidth/2, player->position.y - playerHeight, playerWidth, playerHeight };
 
-    for (int i = 0; i < envItemsLength; i++) // Перебираем все платформы
+    for (int i = 0; i < envItemsLength; i++)
     {
-        if (envItems[i].blocking) // Только препятствия
+        if (envItems[i].type == PLATFORM_SOLID)
         {
-            Rectangle envRect = envItems[i].rect; // Прямоугольник платформы
-            if (CheckCollisionRecs(newPlayerRectX, envRect)) // Если есть пересечение
+            Rectangle envRect = envItems[i].rect;
+            if (CheckCollisionRecs(newPlayerRectX, envRect))
             {
-                if (player->velocityX > 0) // Движение вправо
-                {
-                    newX = envRect.x - playerWidth/2; // Ставим игрока вплотную к левой стороне платформы
-                }
-                else if (player->velocityX < 0) // Движение влево
-                {
-                    newX = envRect.x + envRect.width + playerWidth/2; // Ставим игрока вплотную к правой стороне платформы
-                }
-                player->velocityX = 0; // Останавливаем по X
-                break; // Выходим из цикла, чтобы не было дребезга между несколькими платформами
+                if (player->velocityX > 0)
+                    newX = envRect.x - playerWidth/2;
+                else if (player->velocityX < 0)
+                    newX = envRect.x + envRect.width + playerWidth/2;
+                player->velocityX = 0;
+                break;
             }
         }
     }
-    player->position.x = newX; // Обновляем позицию по X
+    player->position.x = newX;
 
-    // 2. Вертикальное перемещение и коллизии
-    float newY = player->position.y + player->speed * delta; // Новая позиция по Y
-    Rectangle newPlayerRectY = { player->position.x - playerWidth/2, newY - playerHeight, playerWidth, playerHeight }; // Прямоугольник игрока после перемещения по Y
+    // 2. Вертикальное перемещение и коллизии (SOLID и JumpThru)
+    float newY = player->position.y + player->speed * delta;
+    Rectangle newPlayerRectY = { player->position.x - playerWidth/2, newY - playerHeight, playerWidth, playerHeight };
 
-    bool onGround = false; // Флаг: стоим ли на земле
-    for (int i = 0; i < envItemsLength; i++) // Перебираем все платформы
+    bool onGround = false;
+
+    for (int i = 0; i < envItemsLength; i++)
     {
-        if (envItems[i].blocking) // Только препятствия
+        Rectangle envRect = envItems[i].rect;
+
+        // --- SOLID платформы ---
+        if (envItems[i].type == PLATFORM_SOLID)
         {
-            Rectangle envRect = envItems[i].rect; // Прямоугольник платформы
-            if (CheckCollisionRecs(newPlayerRectY, envRect)) // Если есть пересечение
+            if (CheckCollisionRecs(newPlayerRectY, envRect))
             {
-                if (player->speed > 0) // Падение вниз
+                if (player->speed > 0)
                 {
-                    newY = envRect.y; // Ставим игрока на платформу
-                    onGround = true; // Стоим на земле
+                    newY = envRect.y;
+                    onGround = true;
                 }
-                else if (player->speed < 0) // Прыжок вверх
+                else if (player->speed < 0)
                 {
-                    newY = envRect.y + envRect.height + playerHeight; // Ставим игрока под потолок
+                    newY = envRect.y + envRect.height + playerHeight;
                 }
-                player->speed = 0; // Останавливаем по Y
-                break; // Выходим из цикла, чтобы не было дребезга между несколькими платформами
+                player->speed = 0;
+                break;
+            }
+        }
+        // --- JumpThru платформы ---
+        else if (envItems[i].type == PLATFORM_JUMPTHRU)
+        {
+            float prevBottom = player->position.y;
+            float platTop = envRect.y;
+            float platLeft = envRect.x;
+            float platRight = envRect.x + envRect.width;
+            float playerLeft = player->position.x - playerWidth/2;
+            float playerRight = player->position.x + playerWidth/2;
+
+            // Если dropDown активен — игнорируем платформу, пока игрок не ушёл ниже её верхней грани
+            if (player->dropDown) {
+                if (prevBottom > platTop + 1.0f) {
+                    player->dropDown = false; // Сбросить dropDown после выхода вниз
+                }
+                continue;
+            }
+
+            // Если падаем сверху и НЕ dropDown — обычная посадка на платформу
+            if (player->speed > 0 &&
+                prevBottom <= platTop + 2.0f &&
+                playerRight > platLeft + 2.0f && playerLeft < platRight - 2.0f)
+            {
+                if (CheckCollisionRecs(newPlayerRectY, envRect))
+                {
+                    newY = envRect.y;
+                    onGround = true;
+                    player->speed = 0;
+                    break;
+                }
             }
         }
     }
-    player->position.y = newY; // Обновляем позицию по Y
+    player->position.y = newY;
 
     // --- Проверка приземления для пыли ---
-    *justLanded = (!wasOnGround && onGround); // Если только что приземлились
-    if (*justLanded) *landPos = player->position; // Сохраняем позицию приземления
-    wasOnGround = onGround; // Запоминаем состояние на следующий кадр
-    player->canJump = onGround; // Можно прыгать только если стоим на земле
+    *justLanded = (!wasOnGround && onGround);
+    if (*justLanded) *landPos = player->position;
+    wasOnGround = onGround;
+    player->canJump = onGround;
 }
 
-// --- Заглушки для функций камеры (оставьте свои реализации, если нужно) ---
+// --- Заглушки для функций камеры ---
 void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
-{
-    camera->target = player->position; // Камера всегда по центру игрока
-}
+{ camera->target = player->position; }
 void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
-{
-    camera->target = player->position; // Камера по центру игрока, но не выходит за карту
-}
+{ camera->target = player->position; }
 void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
-{
-    camera->target = Vector2Lerp(camera->target, player->position, 0.1f); // Плавное следование камеры за игроком
-}
+{ camera->target = Vector2Lerp(camera->target, player->position, 0.1f); }
 void UpdateCameraEvenOutOnLanding(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
-{
-    camera->target = player->position; // Камера выравнивается после приземления
-}
+{ camera->target = player->position; }
 void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height)
-{
-    camera->target = player->position; // Камера: игрок "толкает" границы экрана
-}
+{ camera->target = player->position; }
