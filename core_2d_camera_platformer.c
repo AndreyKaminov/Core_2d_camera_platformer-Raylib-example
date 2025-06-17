@@ -9,19 +9,15 @@
 #include "raymath.h" // Подключение библиотеки raymath
 
 // --- Константы игрока ---
-#define G 950 // Гравитация
+#define G 900 // Гравитация
 #define PLAYER_JUMP_SPD 350.0f // Скорость прыжка игрока
 #define PLAYER_MAX_SPEED 500.0f // Максимальная горизонтальная скорость игрока
 #define PLAYER_ACCELERATION 400.0f // Ускорение игрока
-#define PLAYER_DECELERATION 450.0f // Замедление игрока
-#define PLAYER_MAX_JUMP_TIME 0.40f // Максимальное время удержания прыжка
-#define PLAYER_JUMP_HOLD_FORCE 500.0f // Сила удержания прыжка
+#define PLAYER_DECELERATION 280.0f // Замедление игрока
+#define PLAYER_MAX_JUMP_TIME 0.30f // Максимальное время удержания прыжка
+#define PLAYER_JUMP_HOLD_FORCE 350.0f // Сила удержания прыжка
 #define PLAYER_DASH_SPEED 900.0f // Скорость рывка
 #define PLAYER_DASH_TIME 0.18f   // Длительность рывка (сек)
-
-// --- Константы скриншейка ---
-#define SCREEN_SHAKE_DURATION 0.3f // Длительность скриншейка
-#define SCREEN_SHAKE_INTENSITY 20.0f // Интенсивность скриншейка
 
 // --- Типы платформ ---
 typedef enum { PLATFORM_NONE = 0, PLATFORM_SOLID = 1, PLATFORM_JUMPTHRU = 2 } PlatformType; // Типы платформ
@@ -38,8 +34,10 @@ typedef struct Player {
     int jumpCount;      // Счетчик прыжков для распрыжки
     bool dashing;       // Сейчас выполняется рывок
     float dashTime;     // Оставшееся время рывка
-    bool isSuperJump;   // Флаг супер-прыжка
-    bool wasSuperJump;  // Флаг: был ли последний прыжок супер-прыжком
+<<<<<<< HEAD
+    float dashCooldown; // Кулдаун между дэшами
+=======
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 } Player;
 
 // --- Структура платформы ---
@@ -60,11 +58,6 @@ typedef struct Particle {
     bool active; // Активна ли частица
 } Particle;
 Particle particles[MAX_PARTICLES] = {0}; // Массив частиц
-
-// --- Глобальные переменные для скриншейка ---
-float screenShakeTime = 0.0f;
-float screenShakeIntensity = 0.0f;
-Vector2 originalCameraOffset = {0}; // Сохраняем оригинальное положение камеры
 
 // --- Функция спавна пыли ---
 void SpawnDustParticles(Vector2 pos, int count)
@@ -144,8 +137,10 @@ int main(void)
     player.jumpCount = 0; // Счетчик прыжков для распрыжки
     player.dashing = false; // Не в рывке
     player.dashTime = 0.0f; // Таймер рывка
-    player.isSuperJump = false; // Флаг супер-прыжка
-    player.wasSuperJump = false; // Флаг: был ли последний прыжок супер-прыжком
+<<<<<<< HEAD
+    player.dashCooldown = 0.0f; // Кулдаун дэша
+=======
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 
     // --- Уровень: добавлен JumpThru справа от оранжевой платформы ---
     EnvItem envItems[] = {
@@ -163,10 +158,13 @@ int main(void)
     Camera2D camera = {0}; // Структура камеры
     camera.target = player.position; // Камера смотрит на игрока
     camera.offset = (Vector2){ screenWidth/2.0f, screenHeight/2.0f }; // Центр экрана
-    originalCameraOffset = camera.offset; // Сохраняем начальное положение
     camera.rotation = 0.0f; // Без поворота
+<<<<<<< HEAD
     camera.zoom = 2.0f; // Масштаб 1:1
     float cameraTargetZoom = 2.0f; // Желаемый zoom камеры
+=======
+    camera.zoom = 1.0f; // Масштаб 1:1
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 
     void (*cameraUpdaters[])(Camera2D*, Player*, EnvItem*, int, float, int, int) = {
         UpdateCameraCenter,
@@ -175,7 +173,11 @@ int main(void)
         UpdateCameraEvenOutOnLanding,
         UpdateCameraPlayerBoundsPush
     }; // Массив указателей на функции обновления камеры
+<<<<<<< HEAD
     int cameraOption = 2; // Текущий режим камеры
+=======
+    int cameraOption = 0; // Текущий режим камеры
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
     int cameraUpdatersLength = sizeof(cameraUpdaters)/sizeof(cameraUpdaters[0]); // Количество режимов камеры
     char *cameraDescriptions[] = {
         "Follow player center",
@@ -185,7 +187,11 @@ int main(void)
         "Player push camera on getting too close to screen edge"
     }; // Описания режимов камеры
 
+<<<<<<< HEAD
     SetTargetFPS(144); // 144 кадров в секунду
+=======
+    SetTargetFPS(60); // 60 кадров в секунду
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
 
     while (!WindowShouldClose())
     {
@@ -215,14 +221,8 @@ int main(void)
         else if (camera.zoom < 0.25f) camera.zoom = 0.25f;
 
         // --- Эффект отдаления камеры при прыжке ---
-        if (!player.canJump) { // Если в воздухе
-            if (player.isSuperJump) { // Если это супер-прыжок
-                cameraTargetZoom = 1.0f; // Очень сильное отдаление для супер-прыжка
-            } else {
-                cameraTargetZoom = 1.7f; // Обычное отдаление для обычного прыжка
-            }
-        } else if (fabs(player.velocityX) >= PLAYER_MAX_SPEED) { // Если на земле и на максимальной скорости
-            cameraTargetZoom = 1.7f;
+        if (!player.canJump || fabs(player.velocityX) >= PLAYER_MAX_SPEED) {
+            cameraTargetZoom = 1.7f; // Отдалить камеру при прыжке или максимальной скорости
         } else {
             cameraTargetZoom = 2.0f; // Вернуть камеру при приземлении и обычной скорости
         }
@@ -313,6 +313,24 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
     static bool wasOnGround = false;
 
     // --- DASH (рывок) ---
+<<<<<<< HEAD
+    if (player->dashCooldown > 0.0f) player->dashCooldown -= delta;
+
+    if (!player->dashing && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT))) {
+        // Рывок только если есть движение влево или вправо и кулдаун закончился
+        if (player->dashCooldown <= 0.0f) {
+            if (IsKeyDown(KEY_LEFT)) {
+                player->dashing = true;
+                player->dashTime = PLAYER_DASH_TIME;
+                player->velocityX = -PLAYER_DASH_SPEED;
+                player->dashCooldown = 1.5f; // Устанавливаем кулдаун
+            } else if (IsKeyDown(KEY_RIGHT)) {
+                player->dashing = true;
+                player->dashTime = PLAYER_DASH_TIME;
+                player->velocityX = PLAYER_DASH_SPEED;
+                player->dashCooldown = 1.5f; // Устанавливаем кулдаун
+            }
+=======
     if (!player->dashing && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT))) {
         // Рывок только если есть движение влево или вправо
         if (IsKeyDown(KEY_LEFT)) {
@@ -323,6 +341,7 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
             player->dashing = true;
             player->dashTime = PLAYER_DASH_TIME;
             player->velocityX = PLAYER_DASH_SPEED;
+>>>>>>> 14b060b5641763622f26fa33fcea2aa8b3c63fb6
         }
     }
     if (player->dashing) {
@@ -382,11 +401,9 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
             if (player->jumpCount == 3) {
                 jumpSpeed *= 2.0f; // В 2 раза выше
                 player->jumpCount = 0; // Сбросить счетчик
-                player->isSuperJump = true; // Устанавливаем флаг супер-прыжка
             }
         } else {
             player->jumpCount = 0; // Если прыжок не на максимальной скорости, сбрасываем счетчик
-            player->isSuperJump = false;
         }
         player->speed = jumpSpeed;
         player->canJump = false;
