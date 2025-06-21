@@ -347,6 +347,152 @@ void UpdateEditMode(Camera2D *camera, Player *player);
 void DrawEditModeUI(void);
 void HandleTilePlacement(Camera2D *camera);
 
+// --- Структура для progressive JSON загрузки ---
+typedef struct {
+    FILE* file;
+    bool isLoading;
+    bool isComplete;
+    float progress;  // 0.0 - 1.0
+    int currentLine;
+    int totalLines;
+    char currentLineBuffer[65536];
+    char statusMessage[256];
+} ProgressiveLoader;
+
+// --- Глобальные переменные для progressive загрузки ---
+ProgressiveLoader levelLoader = {0};
+bool showLoadingScreen = false;
+
+// --- Функции для progressive JSON загрузки ---
+bool InitProgressiveLoader(const char* filename) {
+    levelLoader.file = fopen(filename, "r");
+    if (!levelLoader.file) {
+        return false;
+    }
+    
+    // Подсчитываем общее количество строк для прогресса
+    levelLoader.totalLines = 0;
+    char tempBuffer[1024];
+    while (fgets(tempBuffer, sizeof(tempBuffer), levelLoader.file)) {
+        levelLoader.totalLines++;
+    }
+    rewind(levelLoader.file);
+    
+    levelLoader.isLoading = true;
+    levelLoader.isComplete = false;
+    levelLoader.progress = 0.0f;
+    levelLoader.currentLine = 0;
+    strcpy(levelLoader.statusMessage, "Initializing...");
+    
+    return true;
+}
+
+void UpdateProgressiveLoader() {
+    if (!levelLoader.isLoading || !levelLoader.file) {
+        return;
+    }
+    
+    // Обрабатываем несколько строк за кадр для плавности
+    for (int i = 0; i < 10 && levelLoader.isLoading; i++) {
+        if (!fgets(levelLoader.currentLineBuffer, sizeof(levelLoader.currentLineBuffer), levelLoader.file)) {
+            // Конец файла
+            levelLoader.isLoading = false;
+            levelLoader.isComplete = true;
+            levelLoader.progress = 1.0f;
+            strcpy(levelLoader.statusMessage, "Loading complete!");
+            fclose(levelLoader.file);
+            levelLoader.file = NULL;
+            return;
+        }
+        
+        levelLoader.currentLine++;
+        levelLoader.progress = (float)levelLoader.currentLine / levelLoader.totalLines;
+        
+        // Ищем начало массива данных
+        if (strstr(levelLoader.currentLineBuffer, "\"data\"") && strchr(levelLoader.currentLineBuffer, '[')) {
+            strcpy(levelLoader.statusMessage, "Found tilemap data...");
+            continue;
+        }
+        
+        // Парсим строки с данными тайлов
+        if (strchr(levelLoader.currentLineBuffer, '[') && strchr(levelLoader.currentLineBuffer, ']')) {
+            static int tilemapY = 0;
+            if (tilemapY < TILEMAP_HEIGHT) {
+                char* start = strchr(levelLoader.currentLineBuffer, '[');
+                if (start) start++;
+                else start = levelLoader.currentLineBuffer;
+                
+                char* end = strrchr(start, ']');
+                if (end) *end = '\0';
+                
+                char* token = strtok(start, ",");
+                int x = 0;
+                while (token && x < TILEMAP_WIDTH) {
+                    tilemap[tilemapY][x] = (unsigned char)atoi(token);
+                    token = strtok(NULL, ",");
+                    x++;
+                }
+                tilemapY++;
+                
+                sprintf(levelLoader.statusMessage, "Loading tiles: %d/%d", tilemapY, TILEMAP_HEIGHT);
+            }
+        }
+        
+        // Проверяем конец массива
+        char* trimmed = levelLoader.currentLineBuffer;
+        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+        if (*trimmed == ']' && (trimmed[1] == '\0' || trimmed[1] == '\n')) {
+            strcpy(levelLoader.statusMessage, "Finalizing...");
+        }
+    }
+}
+
+void DrawLoadingScreen() {
+    ClearBackground(DARKGRAY);
+    
+    int screenWidth = GetScreenWidth();
+    int screenHeight = GetScreenHeight();
+    
+    // Заголовок
+    const char* title = "Loading Level...";
+    int titleWidth = MeasureText(title, 40);
+    DrawText(title, (screenWidth - titleWidth) / 2, screenHeight / 2 - 100, 40, WHITE);
+    
+    // Прогресс бар
+    int barWidth = 400;
+    int barHeight = 30;
+    int barX = (screenWidth - barWidth) / 2;
+    int barY = screenHeight / 2 - 20;
+    
+    // Фон прогресс бара
+    DrawRectangle(barX, barY, barWidth, barHeight, LIGHTGRAY);
+    DrawRectangleLines(barX, barY, barWidth, barHeight, WHITE);
+    
+    // Заполнение прогресс бара
+    int fillWidth = (int)(barWidth * levelLoader.progress);
+    DrawRectangle(barX, barY, fillWidth, barHeight, GREEN);
+    
+    // Текст прогресса
+    char progressText[64];
+    sprintf(progressText, "%.1f%%", levelLoader.progress * 100.0f);
+    int progressWidth = MeasureText(progressText, 20);
+    DrawText(progressText, (screenWidth - progressWidth) / 2, barY + 35, 20, WHITE);
+    
+    // Статус
+    int statusWidth = MeasureText(levelLoader.statusMessage, 16);
+    DrawText(levelLoader.statusMessage, (screenWidth - statusWidth) / 2, barY + 70, 16, LIGHTGRAY);
+    
+    // Индикатор загрузки
+    float time = GetTime();
+    int dots = (int)(time * 2) % 4;
+    char loadingDots[8] = "   ";
+    for (int i = 0; i < dots; i++) {
+        loadingDots[i] = '.';
+    }
+    int dotsWidth = MeasureText(loadingDots, 24);
+    DrawText(loadingDots, (screenWidth - dotsWidth) / 2, barY + 100, 24, YELLOW);
+}
+
 int main(void)
 {
     const int screenWidth = 1600; // Ширина окна
@@ -356,12 +502,10 @@ int main(void)
 
     playerTexture = LoadTexture(PLAYER_SPRITE_PATH); // Загружаем спрайт игрока
 
-    // Пытаемся загрузить уровень из JSON файла
-    bool levelLoaded = LoadLevelFromJSON(LEVEL_FILE_PATH);
-
-    // Если файл не найден, инициализируем уровень по умолчанию
-    if (!levelLoaded) {
+    // Progressive загрузка уровня
+    if (!InitProgressiveLoader(LEVEL_FILE_PATH)) {
         InitializeTilemap();
+        levelLoader.isComplete = true; // Сразу переходим к игре
     }
 
     Player player = {0}; // Создание структуры игрока и обнуление
@@ -416,6 +560,15 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        // Progressive загрузка уровня
+        if (!levelLoader.isComplete) {
+            UpdateProgressiveLoader();
+            BeginDrawing();
+            DrawLoadingScreen();
+            EndDrawing();
+            continue;
+        }
+
         float deltaTime = GetFrameTime();
 
         // --- Спрыгивание с JumpThru: если стоим и нажали вниз+пробел, активируем dropDown и НЕ прыгаем! ---
