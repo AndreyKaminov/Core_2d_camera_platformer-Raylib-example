@@ -249,7 +249,7 @@ endif
 
 # Define include paths for required headers
 # NOTE: Several external required libraries (stb and others)
-INCLUDE_PATHS = -I. -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external
+INCLUDE_PATHS = -I. -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -Iexternal/box2d/include
 
 # Define additional directories containing required header files
 ifeq ($(PLATFORM),PLATFORM_RPI)
@@ -351,9 +351,11 @@ rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst 
 SRC_DIR = src
 OBJ_DIR = obj
 
-# Define all object files from source files
-SRC = $(call rwildcard, ./, *.c, *.h)
-#OBJS = $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
+# Box2D sources
+BOX2D_SRCS := $(wildcard external/box2d/src/*.c)
+
+# Define all source files from source files
+SRC = $(call rwildcard, ./, *.c, *.h) $(BOX2D_SRCS)
 OBJS = $(patsubst %.c,%.o,$(filter %.c,$(SRC)))
 
 # For Android platform we call a custom Makefile.Android
